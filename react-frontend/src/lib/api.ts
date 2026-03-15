@@ -131,20 +131,16 @@ export const API = {
     },
 
     // Candidate Upload
-    getUploadUrl: async () => {
-        const response = await fetch(`${API_BASE_url}/candidates/upload-url`);
-        if (!response.ok) throw new Error("Failed to get upload URL");
-        return response.json();
-    },
-
-    completeUpload: async (data: { candidateId: string; objectKey: string; jobId: string }) => {
-        const response = await fetch(`${API_BASE_url}/candidates/complete-upload`, {
+    uploadCv: async (formData: FormData) => {
+        const response = await fetch(`${API_BASE_url}/candidates/upload-cv`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
+            body: formData,
         });
-        if (!response.ok) throw new Error("Failed to complete upload");
-        return response;
+        if (!response.ok) {
+            const errorData = await response.json();
+             throw new Error(errorData.error || "Failed to upload CV");
+        }
+        return response.json();
     },
 
     // Interview Invitation & Questions flow

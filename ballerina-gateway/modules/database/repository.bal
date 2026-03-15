@@ -342,6 +342,66 @@ public client class Repository {
         return;
     }
 
+    # Saves the Gemini structured CV parsing results into respective tables
+    #
+    # + candidateId - Candidate UUID
+    # + parsedData - Extracted JSON from Gemini containing experience, stack, pii, and sections
+    # + return - Error if failed
+    remote function saveCvParseResult(string candidateId, json parsedData) returns error? {
+        map<json> dataMap = <map<json>>parsedData;
+
+        // 1. Save Sections (education, work_experience, projects, achievements)
+        if dataMap.hasKey("sections") {
+            map<json> secs = <map<json>>dataMap["sections"];
+            json sectionsPayload = {
+                "candidate_id": candidateId,
+                "education_text": secs["education"] is () ? "" : secs["education"].toString(),
+                "work_experience_text": secs["work_experience"] is () ? "" : secs["work_experience"].toString(),
+                "projects_text": secs["projects"] is () ? "" : secs["projects"].toString(),
+                "achievements_text": secs["achievements"] is () ? "" : secs["achievements"].toString()
+            };
+
+            http:Response secsRes = check self.httpClient->post("/rest/v1/cv_parsed_sections", sectionsPayload, headers = self.headers);
+            if secsRes.statusCode >= 300 {
+                 return error("Failed to insert CV Sections");
+            }
+        }
+
+        // 2. Save PII Entity Map
+        if dataMap.hasKey("piiMap") {
+            json piiPayload = {
+                "candidate_id": candidateId,
+                "redacted_map": dataMap["piiMap"]
+            };
+
+            http:Response piiRes = check self.httpClient->post("/rest/v1/pii_entity_maps", piiPayload, headers = self.headers);
+            if piiRes.statusCode >= 300 {
+                 return error("Failed to insert PII Map");
+            }
+        }
+
+        // 3. Save Context Tags (Experience Level & Detected Stack)
+        string expLevel = dataMap.hasKey("experienceLevel") ? dataMap["experienceLevel"].toString() : "Unknown";
+        json[] stack = [];
+        if dataMap.hasKey("detectedStack") && dataMap["detectedStack"] is json[] {
+            stack = <json[]>dataMap["detectedStack"];
+        }
+
+        json tagsPayload = {
+            "candidate_id": candidateId,
+            "experience_level": expLevel,
+            "detected_stack": stack,
+            "hf_relevance_skipped": 0
+        };
+
+        http:Response tagsRes = check self.httpClient->post("/rest/v1/candidate_context_tags", tagsPayload, headers = self.headers);
+        if tagsRes.statusCode >= 300 {
+             return error("Failed to insert Context Tags");
+        }
+
+        return;
+    }
+
     # Creates a new Job.
     #
     # + title - Job title
