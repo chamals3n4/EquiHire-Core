@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Code, FileText, Terminal, Briefcase, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Plus, Trash2, Edit2, Code, FileText, Terminal, Briefcase, Loader2 } from 'lucide-react';
 import { AlertMessage } from '@/components/ui/alert-message';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -26,6 +27,7 @@ export default function Questions() {
     questionCounts,
     isLoading: loading,
     addQuestion,
+    updateQuestion,
     deleteQuestion,
   } = useQuestions({ userId });
 
@@ -35,6 +37,15 @@ export default function Questions() {
   const [questionType, setQuestionType] = useState('paragraph');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<import('@/types').Question | null>(null);
+  const [editQuestionText, setEditQuestionText] = useState('');
+  const [editSampleAnswer, setEditSampleAnswer] = useState('');
+  const [editKeywordsInput, setEditKeywordsInput] = useState('');
+  const [editQuestionType, setEditQuestionType] = useState('paragraph');
+  const [isEditingQuestionSubmitting, setIsEditingQuestionSubmitting] = useState(false);
+  const [editError, setEditError] = useState('');
 
   const selectedJob = jobs.find((j) => j.id === selectedJobId);
 
@@ -88,6 +99,46 @@ export default function Questions() {
     } catch (err) {
       console.error(err);
       setError('Failed to delete question.');
+    }
+  };
+
+  const handleEditClick = (q: import('@/types').Question) => {
+    setEditingQuestion(q);
+    setQuestionText(q.questionText); // Wait, use separate state variables to avoid affecting Add Form
+    setEditQuestionText(q.questionText);
+    setEditSampleAnswer(q.sampleAnswer || '');
+    setEditKeywordsInput(q.keywords?.join(', ') || '');
+    setEditQuestionType(q.type || 'paragraph');
+    setEditError('');
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateQuestion = async () => {
+    if (!editingQuestion?.id) return;
+    setEditError('');
+    if (!editQuestionText.trim()) {
+      setEditError('Question description is required.');
+      return;
+    }
+    setIsEditingQuestionSubmitting(true);
+    const keywords = editKeywordsInput
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean);
+    
+    const result = await updateQuestion(editingQuestion.id, {
+      questionText: editQuestionText,
+      sampleAnswer: editSampleAnswer,
+      keywords,
+      questionType: editQuestionType,
+    });
+    setIsEditingQuestionSubmitting(false);
+    
+    if (result.success) {
+      setEditDialogOpen(false);
+      setEditingQuestion(null);
+    } else {
+      setEditError(result.error ?? 'Failed to update question.');
     }
   };
 
@@ -200,14 +251,24 @@ export default function Questions() {
                                                                 </div>
                                                             )}
                                                         </div>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="text-gray-400 hover:text-red-500 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            onClick={() => handleDeleteQuestion(q.id)}
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </Button>
+                                                        <div className="flex flex-col sm:flex-row gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="text-gray-400 hover:text-blue-500 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                onClick={() => handleEditClick(q)}
+                                                            >
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="text-gray-400 hover:text-red-500 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                onClick={() => handleDeleteQuestion(q.id)}
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 </CardContent>
                                             </Card>
@@ -389,6 +450,123 @@ export default function Questions() {
                     </Card>
                 </div>
             </div>
+
+            <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Edit Question</DialogTitle>
+                    </DialogHeader>
+                    <div className="pt-4 space-y-4">
+                        <AlertMessage type="error" message={editError} className="mb-4" />
+                        <div className="space-y-2">
+                            <Label>Question Type</Label>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant={editQuestionType === 'paragraph' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setEditQuestionType('paragraph')}
+                                    className={editQuestionType === 'paragraph' ? 'bg-primary hover:bg-primary/90 text-primary-foreground border-transparent' : 'hover:text-primary hover:border-primary'}
+                                >
+                                    <FileText className="w-4 h-4 mr-2" /> Paragraph
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={editQuestionType === 'code' ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setEditQuestionType('code')}
+                                    className={editQuestionType === 'code' ? 'bg-[#1E1E1E] hover:bg-black text-white border-transparent' : 'hover:text-black hover:border-black'}
+                                >
+                                    <Code className="w-4 h-4 mr-2" /> Coding Challenge
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-q-text">
+                                {editQuestionType === 'code' ? 'Problem Description' : 'Question'}
+                            </Label>
+                            {editQuestionType === 'code' ? (
+                                <div className="relative rounded-md overflow-hidden border border-gray-300 focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
+                                    <div className="bg-gray-100 text-xs text-gray-500 px-3 py-1.5 border-b border-gray-200 flex items-center">
+                                        <FileText className="w-3 h-3 mr-1" /> Description (Markdown supported)
+                                    </div>
+                                    <Textarea
+                                        id="edit-q-text"
+                                        placeholder="Describe the coding problem..."
+                                        value={editQuestionText}
+                                        onChange={(e) => setEditQuestionText(e.target.value)}
+                                        className="min-h-[100px] border-0 focus-visible:ring-0 rounded-none resize-y"
+                                    />
+                                </div>
+                            ) : (
+                                <Textarea
+                                    id="edit-q-text"
+                                    placeholder="e.g. Explain the difference between..."
+                                    value={editQuestionText}
+                                    onChange={(e) => setEditQuestionText(e.target.value)}
+                                    className="min-h-[80px] focus-visible:ring-primary"
+                                />
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-q-answer">
+                                {editQuestionType === 'code' ? 'Sample Solution / Starter Code' : 'Sample Answer (for AI context)'}
+                            </Label>
+
+                            {editQuestionType === 'code' ? (
+                                <div className="relative rounded-md overflow-hidden shadow-sm border border-gray-700">
+                                    <div className="bg-[#1E1E1E] text-gray-400 text-xs px-3 py-1.5 border-b border-gray-700 flex items-center justify-between">
+                                        <span className="flex items-center"><Terminal className="w-3 h-3 mr-2 text-green-500" /> main.py</span>
+                                        <span className="text-[10px] bg-gray-800 px-1.5 rounded text-gray-400">Editor</span>
+                                    </div>
+                                    <Textarea
+                                        id="edit-q-answer"
+                                        placeholder="# Write the solution or starter code here..."
+                                        value={editSampleAnswer}
+                                        onChange={(e) => setEditSampleAnswer(e.target.value)}
+                                        className="min-h-[150px] font-mono text-sm bg-[#1E1E1E] text-green-400 border-0 focus-visible:ring-0 rounded-none resize-y leading-relaxed placeholder:text-gray-600"
+                                        spellCheck={false}
+                                    />
+                                </div>
+                            ) : (
+                                <Textarea
+                                    id="edit-q-answer"
+                                    placeholder="Provide a model answer or key points..."
+                                    value={editSampleAnswer}
+                                    onChange={(e) => setEditSampleAnswer(e.target.value)}
+                                    className="min-h-[100px] font-mono text-sm focus-visible:ring-primary"
+                                />
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-q-keywords">Keywords (Comma separated)</Label>
+                            <Input
+                                id="edit-q-keywords"
+                                placeholder="e.g. Recursion, DP, Time Complexity"
+                                value={editKeywordsInput}
+                                onChange={(e) => setEditKeywordsInput(e.target.value)}
+                                className="focus-visible:ring-primary"
+                            />
+                            <p className="text-xs text-gray-500">Used for automated keyword matching.</p>
+                        </div>
+                    </div>
+                    <DialogFooter className="mt-4">
+                        <Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={isEditingQuestionSubmitting}>
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleUpdateQuestion}
+                            disabled={isEditingQuestionSubmitting}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                        >
+                            {isEditingQuestionSubmitting ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

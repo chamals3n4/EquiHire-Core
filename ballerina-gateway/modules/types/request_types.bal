@@ -27,6 +27,7 @@ public type JobUpdateRequest record {
     string title;
     string description;
     string[] requiredSkills;
+    string? evaluationTemplateId = ();
 };
 
 // Bulk-creates questions for a job.

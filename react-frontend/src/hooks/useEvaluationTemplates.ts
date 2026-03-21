@@ -41,8 +41,14 @@ export function useEvaluationTemplates({
 
   const fetchTemplates = useCallback(async (organizationId: string) => {
     try {
-      const data = await API.getEvaluationTemplates(organizationId);
-      setTemplates(data as ExtendedEvaluationTemplate[]);
+      const data = (await API.getEvaluationTemplates(organizationId)) as ExtendedEvaluationTemplate[];
+      
+      // Backend already returns data sorted by created_at.desc
+      // We pin system templates to the top while preserving the latest-to-oldest order for both system and user templates.
+      const systemTemplates = data.filter((t) => t.is_system_template);
+      const userTemplates = data.filter((t) => !t.is_system_template);
+      
+      setTemplates([...systemTemplates, ...userTemplates]);
     } catch (err) {
       console.error('Error fetching templates', err);
       setTemplates([]);

@@ -30,6 +30,12 @@ export interface UseQuestionsResult {
     questionType: string;
     sortOrder: number;
   }) => Promise<{ success: boolean; error?: string }>;
+  updateQuestion: (questionId: string, params: {
+    questionText: string;
+    sampleAnswer: string;
+    keywords: string[];
+    questionType: string;
+  }) => Promise<{ success: boolean; error?: string }>;
   deleteQuestion: (questionId: string) => Promise<void>;
   refreshQuestions: (jobId: string) => Promise<void>;
 }
@@ -116,6 +122,33 @@ export function useQuestions({ userId }: UseQuestionsOptions): UseQuestionsResul
     [fetchQuestions]
   );
 
+  const updateQuestion = useCallback(
+    async (
+      questionId: string,
+      params: {
+        questionText: string;
+        sampleAnswer: string;
+        keywords: string[];
+        questionType: string;
+      }
+    ) => {
+      try {
+        await API.updateQuestion(questionId, {
+          questionText: params.questionText,
+          sampleAnswer: params.sampleAnswer,
+          keywords: params.keywords,
+          type: params.questionType,
+        });
+        if (selectedJobId) await fetchQuestions(selectedJobId);
+        return { success: true };
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to update question.';
+        return { success: false, error: message };
+      }
+    },
+    [fetchQuestions, selectedJobId]
+  );
+
   const deleteQuestion = useCallback(async (questionId: string) => {
     await API.deleteQuestion(questionId);
     setQuestions((prev) => prev.filter((q) => q.id !== questionId));
@@ -140,6 +173,7 @@ export function useQuestions({ userId }: UseQuestionsOptions): UseQuestionsResul
     questionCounts,
     isLoading,
     addQuestion,
+    updateQuestion,
     deleteQuestion,
     refreshQuestions,
   };

@@ -26,7 +26,13 @@ const inviteSchema = z.object({
   candidateName: z.string().min(2, 'Name must be at least 2 characters'),
   candidateEmail: z.string().email('Please enter a valid email address'),
   selectedJobId: z.string().min(1, 'Please select a job role'),
-  interviewDate: z.string().optional(),
+  interviewDate: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const selectedDate = new Date(val);
+    const now = new Date();
+    // Allow up to 10 minutes in the past purely for UX friendliness on current times
+    return selectedDate.getTime() > now.getTime() - 10 * 60 * 1000;
+  }, { message: 'Interview date cannot be in the past' }),
 });
 
 type InviteFormValues = z.infer<typeof inviteSchema>;
@@ -180,7 +186,9 @@ export default function InviteCandidate({ organizationId }: InviteCandidateProps
                 id="interviewDate"
                 type="datetime-local"
                 {...register('interviewDate')}
+                className={errors.interviewDate ? 'border-red-500 bg-red-50' : ''}
               />
+              {errors.interviewDate && <span className="text-xs text-red-500 font-medium">{errors.interviewDate.message}</span>}
             </div>
             
             <Button

@@ -179,7 +179,7 @@ service /api on apiListener {
     resource function put jobs/[string jobId](@http:Payload types:JobUpdateRequest payload)
             returns json|http:InternalServerError {
         error? err = repositories:updateJob(
-                jobId, payload.title, payload.description, payload.requiredSkills);
+                jobId, payload.title, payload.description, payload.requiredSkills, payload.evaluationTemplateId);
         if err is error {
             return <http:InternalServerError>{body: {"error": err.message()}};
         }
