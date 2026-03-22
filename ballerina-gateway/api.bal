@@ -179,7 +179,7 @@ service /api on apiListener {
     resource function put jobs/[string jobId](@http:Payload types:JobUpdateRequest payload)
             returns json|http:InternalServerError {
         error? err = repositories:updateJob(
-                jobId, payload.title, payload.description, payload.requiredSkills);
+                jobId, payload.title, payload.description, payload.requiredSkills, payload.evaluationTemplateId);
         if err is error {
             return <http:InternalServerError>{body: {"error": err.message()}};
         }
@@ -301,12 +301,19 @@ service /api on apiListener {
             return <http:InternalServerError>{body: {"error": contact.message()}};
         }
 
-        var eval = repositories:getCandidateEvaluation(candidateId);
-        if eval is error {
-            return <http:InternalServerError>{body: {"error": eval.message()}};
+        var evalResult = repositories:getCandidateEvaluation(candidateId);
+        record {|decimal overallScore; decimal cvScore; decimal skillsScore; decimal interviewScore; string summaryFeedback;|} eval;
+        if evalResult is error {
+            // If they haven't finished grading yet, we just default to 0s to allow manual accept/reject.
+            eval = {overallScore: 0d, cvScore: 0d, skillsScore: 0d, interviewScore: 0d, summaryFeedback: ""};
+        } else {
+            eval = evalResult;
         }
 
-        boolean pass = eval.overallScore >= payload.threshold;
+        // Determine pass based on explicit decision or threshold
+        boolean pass = payload.decision == "accepted" ? true :
+                       payload.decision == "rejected" ? false :
+                       eval.overallScore >= payload.threshold;
         string newStatus = pass ? "accepted" : "rejected";
 
         error? updateErr = repositories:updateCandidateStatus(candidateId, newStatus);
@@ -317,16 +324,44 @@ service /api on apiListener {
 
         boolean emailSent = false;
         if pass {
+            string acceptanceMsg = "<p>We are pleased to inform you that you have successfully passed the technical evaluation for <strong>"
+                    + contact.jobTitle + "</strong> and you are hired!</p>"
+                    + "<p><strong>Your Evaluation Results:</strong><br>"
+                    + "• CV/Resume Score: " + eval.cvScore.toString() + "/100<br>"
+                    + "• Skills Assessment: " + eval.skillsScore.toString() + "/100<br>"
+                    + "• Technical Interview: " + eval.interviewScore.toString() + "/100<br>"
+                    + "• Overall Score: " + eval.overallScore.toString() + "/100</p>"
+                    + "<p>Our recruitment team will be in touch shortly with the next steps.</p>";
             error? emailErr = services:sendAcceptanceEmail(
-                    contact.candidateEmail, contact.candidateName, contact.jobTitle);
+                    contact.candidateEmail, contact.candidateName, contact.jobTitle, acceptanceMsg);
             emailSent = emailErr is ();
+            log:printInfo("Acceptance decision made", candidateId = candidateId, candidateName = contact.candidateName);
+        } else {
+            // Send rejection email with AI-generated feedback including scores
+            string rejectionMsg = "<p>Thank you for your application and participation in our interview process. "
+                    + "While your profile shows promise, we have decided to move forward with other candidates at this time.</p>"
+                    + "<p><strong>Your Evaluation Results:</strong><br>"
+                    + "• CV/Resume Score: " + eval.cvScore.toString() + "/100<br>"
+                    + "• Skills Assessment: " + eval.skillsScore.toString() + "/100<br>"
+                    + "• Technical Interview: " + eval.interviewScore.toString() + "/100<br>"
+                    + "• Overall Score: " + eval.overallScore.toString() + "/100</p>"
+                    + "<p>We appreciate your time and effort, and we encourage you to apply for future opportunities. "
+                    + "Best of luck with your career journey!</p>";
+            error? emailErr = services:sendRejectionEmail(
+                    contact.candidateEmail, contact.candidateName, contact.jobTitle, rejectionMsg);
+            emailSent = emailErr is ();
+            log:printInfo("Rejection decision made", candidateId = candidateId, candidateName = contact.candidateName);
         }
 
         return {
             candidateId: candidateId,
             pass: pass,
             emailSent: emailSent,
-            status: newStatus
+            status: newStatus,
+            overallScore: eval.overallScore,
+            cvScore: eval.cvScore,
+            skillsScore: eval.skillsScore,
+            interviewScore: eval.interviewScore
         };
     }
 

@@ -178,20 +178,12 @@ function summarizeViolations(types:CheatEventItem[] events) returns string {
 function buildGradingResult(string sessionId, string candidateId, string questionId,
                              string redactedAns, types:QuestionItem q, string expLevel,
                              boolean hfPassed, float? hfScore, string violationsSummary) returns types:GradingResult {
-    if !hfPassed {
-        return {
-            sessionId: sessionId, candidateId: candidateId, questionId: questionId,
-            redactedAnswer: redactedAns, score: constants:AUTO_ZERO_SCORE,
-            feedback: constants:AUTO_ZERO_FEEDBACK, hfGatePassed: false,
-            hfRelevanceScore: hfScore, wasFlagged: false
-        };
-    }
-    return callGeminiGrader(sessionId, candidateId, questionId, redactedAns, q, expLevel, hfScore, violationsSummary);
+    return callGeminiGrader(sessionId, candidateId, questionId, redactedAns, q, expLevel, hfPassed, hfScore, violationsSummary);
 }
 
 function callGeminiGrader(string sessionId, string candidateId, string questionId,
                            string redactedAns, types:QuestionItem q, string expLevel,
-                           float? hfScore, string violationsSummary) returns types:GradingResult {
+                           boolean hfPassed, float? hfScore, string violationsSummary) returns types:GradingResult {
     string prompt = utils:buildGradingPrompt(
         redactedAns, q.questionText, q.sampleAnswer, expLevel, "Moderate", violationsSummary);
     string url = string `/models/${constants:GEMINI_MODEL}:generateContent?key=${config:geminiApiKey}`;
@@ -221,7 +213,7 @@ function callGeminiGrader(string sessionId, string candidateId, string questionI
     return {
         sessionId: sessionId, candidateId: candidateId, questionId: questionId,
         redactedAnswer: finalRedacted, score: finalScore, feedback: finalFeedback,
-        hfGatePassed: true, hfRelevanceScore: hfScore,
+        hfGatePassed: hfPassed, hfRelevanceScore: hfScore,
         geminiModel: constants:GEMINI_MODEL, gradingAttempt: attempts, wasFlagged: flagged
     };
 }
@@ -294,19 +286,26 @@ function aggregateAndFinalize(string candidateId, string jobId,
     if count > 0 {
         float interviewAvg = (total / <float>count) * constants:SCORE_SCALE_FACTOR;
         
-        // Fetch existing sub-scores to maintain them
         float cvScore = 0.0;
         float skillsScore = 0.0;
         
+        // Fetch existing sub-scores
         var existingEval = repositories:getCandidateEvaluation(candidateId);
-        if existingEval is record {|decimal overallScore; decimal cvScore; decimal skillsScore; decimal interviewScore; string summaryFeedback;|} {
+        
+        if existingEval is error {
+            log:printWarn("Could not fetch existing evaluation scores", candidateId = candidateId, errorMessage = existingEval.message());
+        } else {
             cvScore = <float>existingEval.cvScore;
             skillsScore = <float>existingEval.skillsScore;
+            log:printInfo("Retrieved CV scores from DB", cv = cvScore, skills = skillsScore);
         }
         
+        // Recalculate the weighted overall score
         float overallScore = (cvScore * 0.3) + (skillsScore * 0.2) + (interviewAvg * 0.5);
+        
+        // If no CV screening was done, overall is just the interview score
         if cvScore == 0.0 && skillsScore == 0.0 {
-            overallScore = interviewAvg; // Fallback if no CV screening was done
+            overallScore = interviewAvg; 
         }
 
         string recStatus = overallScore >= constants:PASS_THRESHOLD
@@ -316,18 +315,19 @@ function aggregateAndFinalize(string candidateId, string jobId,
                          "Overall: " + overallScore.toString() + "/100. " +
                          "(Interview: " + interviewAvg.toString() + ")";
 
+        // This call will now include the actual CV and Skills scores instead of 0.0
         error? evalErr = repositories:insertEvaluationResult(
             candidateId, jobId, cvScore, skillsScore, interviewAvg, overallScore, summary, recStatus);
             
         if evalErr is error {
-            log:printError("insertEvaluationResult failed",
-                           'error = evalErr, candidateId = candidateId, sessionId = sessionId);
+            log:printError("insertEvaluationResult failed", 'error = evalErr, candidateId = candidateId);
         }
     }
+    
+    // Mark session as graded
     error? sessErr = repositories:updateExamSession(sessionId, constants:SESSION_GRADED, ());
     if sessErr is error {
-        log:printError("Failed to mark session graded",
-                       'error = sessErr, sessionId = sessionId, candidateId = candidateId);
+        log:printError("Failed to mark session graded", 'error = sessErr, sessionId = sessionId);
     }
 }
 

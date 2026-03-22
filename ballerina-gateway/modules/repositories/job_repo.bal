@@ -3,7 +3,6 @@
 // evaluation templates, and candidate answers.
 // ===========================================================================
 import ballerina/http;
-import ballerina/log;
 import equihire/gateway.clients;
 import equihire/gateway.types;
 
@@ -36,7 +35,7 @@ public function createJob(string title, string description, string[] requiredSki
 }
 
 public function getJobsByRecruiter(string recruiterId) returns json[]|error {
-    string path = string `/rest/v1/jobs?recruiter_id=eq.${recruiterId}&select=id,title,description,required_skills,organization_id,created_at`;
+    string path = string `/rest/v1/jobs?recruiter_id=eq.${recruiterId}&select=id,title,description,required_skills,organization_id,evaluation_template_id,created_at`;
     http:Response response = check clients:supabaseHttpClient->get(
         path, headers = clients:getSupabaseHeaders(), targetType = http:Response);
     if response.statusCode >= 300 { return error("getJobsByRecruiter failed"); }
@@ -56,6 +55,7 @@ public function getJobsByRecruiter(string recruiterId) returns json[]|error {
             "description": r["description"] is () ? "" : r["description"].toString(),
             "requiredSkills": requiredSkills,
             "organizationId": r["organization_id"].toString(),
+            "evaluationTemplateId": r["evaluation_template_id"] is () ? () : r["evaluation_template_id"].toString(),
             "createdAt": r["created_at"].toString()
         });
     }
@@ -63,8 +63,13 @@ public function getJobsByRecruiter(string recruiterId) returns json[]|error {
 }
 
 public function updateJob(string jobId, string title, string description,
-                          string[] requiredSkills) returns error? {
+                          string[] requiredSkills, string? evaluationTemplateId = ()) returns error? {
     json payload = {"title": title, "description": description, "required_skills": requiredSkills};
+    if evaluationTemplateId is string && evaluationTemplateId != "" {
+        map<json> m = <map<json>>payload;
+        m["evaluation_template_id"] = evaluationTemplateId;
+        payload = m;
+    }
     string path  = string `/rest/v1/jobs?id=eq.${jobId}`;
     http:Response response = check clients:supabaseHttpClient->patch(
         path, payload, headers = clients:getSupabaseServiceHeaders(), targetType = http:Response);
@@ -240,16 +245,6 @@ public function deleteEvaluationTemplate(string id, string organizationId) retur
     if response.statusCode >= 300 { return error("deleteEvaluationTemplate failed"); }
 }
 
-// ---------------------------------------------------------------------------
-// Candidate Answers
-// ---------------------------------------------------------------------------
+// saveCandidateAnswer removed — was dead code targeting the legacy `candidate_answers` table.
+// Candidate answers are stored via insertRawAnswer() into raw_answer_vault.
 
-public function saveCandidateAnswer(string candidateId, string questionId, string answerText) returns error? {
-    json payload = {"candidate_id": candidateId, "question_id": questionId, "answer_text": answerText};
-    http:Response response = check clients:supabaseHttpClient->post(
-        "/rest/v1/candidate_answers", payload, headers = clients:getSupabaseServiceHeaders());
-    if response.statusCode >= 300 {
-        log:printError("saveCandidateAnswer failed", candidateId = candidateId, questionId = questionId);
-        return error("saveCandidateAnswer failed");
-    }
-}

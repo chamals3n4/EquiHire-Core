@@ -276,13 +276,20 @@ export async function getCandidates(orgId: string): Promise<Candidate[]> {
 }
 
 /**
- * Applies accept/reject decision for a candidate based on threshold.
+ * Applies accept/reject decision for a candidate.
+ * @param candidateId - The candidate ID
+ * @param threshold - The auto-pass threshold (0-100)
+ * @param decision - Explicit decision: 'auto' (use threshold), 'accepted', or 'rejected'
  */
-export async function decideCandidate(candidateId: string, threshold: number): Promise<unknown> {
+export async function decideCandidate(
+  candidateId: string,
+  threshold: number,
+  decision: 'auto' | 'accepted' | 'rejected' = 'auto'
+): Promise<unknown> {
   const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/decide`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ threshold }),
+    body: JSON.stringify({ threshold, decision }),
   });
   if (!response.ok) throw new Error('Decision failed');
   return response.json();
@@ -333,35 +340,15 @@ export async function getAuditLogs(orgId: string): Promise<import('@/types').Aud
 }
 
 /**
- * Flags cheating violations for a candidate.
+ * Fetches the presigned URL to reveal the candidate's original CV (PII data).
  */
-export async function flagCheating(
-  candidateId: string,
-  organizationId: string,
-  violations: Record<string, number>
-): Promise<unknown> {
-  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/flag-cheating`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ organizationId, violations }),
-  });
-  if (!response.ok) throw new Error('Failed to flag cheating');
+export async function revealCandidate(candidateId: string): Promise<{ url: string; status: string }> {
+  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/reveal`);
+  if (!response.ok) throw new Error('Failed to reveal candidate');
   return response.json();
 }
 
-/**
- * Triggers a manual AI evaluation of a candidate's CV against the job's Marking Criteria.
- */
-export async function evaluateCandidateCV(candidateId: string): Promise<Response> {
-  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/evaluate-cv`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) throw new Error('Failed to evaluate candidate CV');
-  return response;
-}
-
-/** Legacy API object for backward compatibility (calls the above functions). */
+/** Central API object — all functions are also exported individually above. */
 export const API = {
   getOrganization,
   createOrganization,
@@ -372,6 +359,12 @@ export const API = {
   getJobQuestions,
   deleteQuestion,
   getJobs,
+  evaluationTemplates: {
+    get: getEvaluationTemplates,
+    create: createEvaluationTemplate,
+    update: updateEvaluationTemplate,
+    delete: deleteEvaluationTemplate,
+  },
   getEvaluationTemplates,
   createEvaluationTemplate,
   updateEvaluationTemplate,
@@ -387,6 +380,6 @@ export const API = {
   deleteJob,
   updateQuestion,
   getAuditLogs,
-  flagCheating,
-  evaluateCandidateCV,
+  revealCandidate,
 };
+

@@ -38,13 +38,32 @@ export default function CandidateManager() {
     activityFilter,
     setActivityFilter,
     setThreshold,
+    cvWeight,
+    setCvWeight,
+    skillsWeight,
+    setSkillsWeight,
+    interviewWeight,
+    setInterviewWeight,
     setSelectedCandidate,
     handleViewDetails,
-    handleApplyDecision,
-    handleEvaluateCV,
+    handleAcceptCandidate,
+    handleRejectCandidate,
   } = useCandidates({ userId });
 
   const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table');
+
+  // Wrapper function to handle accept/reject decisions
+  const handleApplyDecision = async (candidateId: string, decision: 'accepted' | 'rejected') => {
+    try {
+      if (decision === 'accepted') {
+        await handleAcceptCandidate(candidateId);
+      } else {
+        await handleRejectCandidate(candidateId);
+      }
+    } catch (error) {
+      console.error(`Failed to ${decision} candidate:`, error);
+    }
+  };
 
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-6 animate-in fade-in duration-500">
@@ -89,6 +108,12 @@ export default function CandidateManager() {
             onActivityChange={setActivityFilter}
             threshold={threshold}
             onThresholdChange={setThreshold}
+            cvWeight={cvWeight}
+            onCvWeightChange={setCvWeight}
+            skillsWeight={skillsWeight}
+            onSkillsWeightChange={setSkillsWeight}
+            interviewWeight={interviewWeight}
+            onInterviewWeightChange={setInterviewWeight}
           />
         </div>
 
@@ -103,6 +128,7 @@ export default function CandidateManager() {
           <div className="flex-1 overflow-hidden">
             <CandidatePipeline 
                 candidates={filteredCandidates}
+                threshold={threshold}
                 selectedId={selectedCandidate?.candidateId ?? null}
                 onSelectCandidate={handleViewDetails}
             />
@@ -118,7 +144,6 @@ export default function CandidateManager() {
           isProcessing={isProcessing}
           onClose={() => setSelectedCandidate(null)}
           onApplyDecision={handleApplyDecision}
-          onEvaluateCV={handleEvaluateCV}
         />
       )}
     </div>

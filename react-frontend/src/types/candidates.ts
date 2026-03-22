@@ -4,7 +4,7 @@
  */
 
 /** Pipeline status for a candidate in the hiring process */
-export type CandidateStatus = 'pending' | 'accepted' | 'rejected' | 'scheduled';
+export type CandidateStatus = 'pending' | 'accepted' | 'rejected' | 'scheduled' | 'screening' | 'shortlisted' | 'applied';
 
 /**
  * Extended candidate shape returned by the dashboard candidates API.
@@ -19,6 +19,9 @@ export interface ExtendedCandidate {
   /** Whether the recruiter has viewed this candidate (affects "unseen" filter) */
   seen: boolean;
   appliedDate: string;
+  /** ISO timestamp of when the anonymous profile was created */
+  createdAt?: string;
+
   /** Number of answers flagged as irrelevant/gibberish (HF relevance check) */
   hfRelevanceSkipped: number;
   experienceLevel?: string;
@@ -35,6 +38,7 @@ export interface ExtendedCandidate {
   projects?: any;
   summaryFeedback?: string;
   cheatEventCount?: number;
+  cheatEventTypes?: string[];
 }
 
 /** Filter for activity: all, only seen, or only unseen */

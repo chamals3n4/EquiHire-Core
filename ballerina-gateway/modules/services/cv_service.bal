@@ -6,6 +6,7 @@ import ballerina/log;
 import ballerina/uuid;
 import equihire/gateway.clients;
 import equihire/gateway.config;
+import equihire/gateway.constants;
 import equihire/gateway.repositories;
 import equihire/gateway.types;
 import equihire/gateway.utils;
@@ -54,7 +55,7 @@ function storeInR2(byte[] pdfBytes, string candidateId) returns string|error {
 
 function parseWithGemini(string rawText, string candidateId, string jobId) returns json|error {
     string prompt = utils:buildCvParsePrompt(rawText);
-    string url    = string `/models/gemini-flash-latest:generateContent?key=${config:geminiApiKey}`;
+    string url    = string `/models/${constants:GEMINI_MODEL}:generateContent?key=${config:geminiApiKey}`;
     http:Response res = check clients:geminiClient->post(url, {"contents": [{"parts": [{"text": prompt}]}]});
     if res.statusCode < 200 || res.statusCode >= 300 {
         log:printError("Gemini CV parse failed", statusCode = res.statusCode, candidateId = candidateId);
@@ -82,9 +83,11 @@ function buildCvPreview(string candidateId, string r2Key, map<json> cvMap) retur
 function saveCvAsync(json parsedData, string candidateId, string jobId, string r2Key, string redacted) returns error? {
     map<json> d   = <map<json>>parsedData;
     map<json> sec = d.hasKey("sections") ? <map<json>>d["sections"] : {};
-    json edu  = sec.hasKey("education")       ? sec["education"]       : "";
-    json work = sec.hasKey("work_experience") ? sec["work_experience"] : "";
-    json proj = sec.hasKey("projects")        ? sec["projects"]        : "";
+    json edu  = sec.hasKey("education")       ? sec["education"]       : [];
+    json work = sec.hasKey("work_experience") ? sec["work_experience"] : [];
+    json proj = sec.hasKey("projects")        ? sec["projects"]        : [];
+    json achvs = sec.hasKey("achievements")    ? sec["achievements"]    : [];
+    json certs = sec.hasKey("certificates")    ? sec["certificates"]    : [];
     json tech = d.hasKey("detectedStack")     ? d["detectedStack"]     : [];
     json piiEntities = d.hasKey("piiEntities") ? d["piiEntities"] : [];
     json piiMap      = d.hasKey("piiMap")      ? d["piiMap"]      : {};
@@ -99,9 +102,10 @@ function saveCvAsync(json parsedData, string candidateId, string jobId, string r
 
     // 3. Save Context Tags (experience level and detected skills)
     check repositories:insertContextTags(candidateId, jobId, expLevel, tech, estimatedYears);
-
+    
     // 4. Save parsed sections
-    check repositories:insertCvParsedSections(candidateId, jobId, redacted, edu, work, proj, tech);
+    check repositories:insertCvParsedSections(candidateId, jobId, redacted, edu, work, proj, achvs, certs, tech);
+    _ = start evaluateCandidateCv(candidateId);
     log:printInfo("CV and profile saved to Supabase", candidateId = candidateId, jobId = jobId);
 }
 

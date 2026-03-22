@@ -27,6 +27,7 @@ public type JobUpdateRequest record {
     string title;
     string description;
     string[] requiredSkills;
+    string? evaluationTemplateId = ();
 };
 
 // Bulk-creates questions for a job.
@@ -63,14 +64,6 @@ public type InvitationRequest record {
     string jobId;
 };
     
-// Phase 1 — Signals that a CV file upload to R2 completed (legacy path).
-public type CompleteUploadRequest record {
-    string candidateId;
-    string objectKey;
-    string jobId;
-};
-
-// Phase 2 — Starts an exam session for a candidate.
 public type StartSessionRequest record {
     string jobId;
     string invitationId;
@@ -103,13 +96,5 @@ public type CheatEventItem record {|
 // Pass/fail decision by recruiter.
 public type DecisionRequest record {|
     decimal threshold;
-|};
-
-// Standalone answer evaluation request (direct Gemini evaluation endpoint).
-public type EvaluationRequest record {|
-    string candidateAnswer;
-    string question;
-    string modelAnswer;
-    string experienceLevel = "Junior";
-    string strictness = "Moderate";
+    string decision = "auto"; // 'auto' (based on threshold), 'accepted', or 'rejected'
 |};
