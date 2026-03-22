@@ -276,13 +276,20 @@ export async function getCandidates(orgId: string): Promise<Candidate[]> {
 }
 
 /**
- * Applies accept/reject decision for a candidate based on threshold.
+ * Applies accept/reject decision for a candidate.
+ * @param candidateId - The candidate ID
+ * @param threshold - The auto-pass threshold (0-100)
+ * @param decision - Explicit decision: 'auto' (use threshold), 'accepted', or 'rejected'
  */
-export async function decideCandidate(candidateId: string, threshold: number): Promise<unknown> {
+export async function decideCandidate(
+  candidateId: string,
+  threshold: number,
+  decision: 'auto' | 'accepted' | 'rejected' = 'auto'
+): Promise<unknown> {
   const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/decide`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ threshold }),
+    body: JSON.stringify({ threshold, decision }),
   });
   if (!response.ok) throw new Error('Decision failed');
   return response.json();
@@ -361,6 +368,34 @@ export async function evaluateCandidateCV(candidateId: string): Promise<Response
   return response;
 }
 
+/**
+ * Sends acceptance email to candidate with congratulations message.
+ */
+export async function sendAcceptanceEmail(candidateId: string): Promise<unknown> {
+  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/send-acceptance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) throw new Error('Failed to send acceptance email');
+  return response.json();
+}
+
+/**
+ * Sends rejection email to candidate with feedback and scores.
+ */
+export async function sendRejectionEmail(
+  candidateId: string,
+  scores?: { cv: number; skills: number; interview: number; final: number }
+): Promise<unknown> {
+  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/send-rejection`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scores }),
+  });
+  if (!response.ok) throw new Error('Failed to send rejection email');
+  return response.json();
+}
+
 /** Legacy API object for backward compatibility (calls the above functions). */
 export const API = {
   getOrganization,
@@ -389,4 +424,6 @@ export const API = {
   getAuditLogs,
   flagCheating,
   evaluateCandidateCV,
+  sendAcceptanceEmail,
+  sendRejectionEmail,
 };

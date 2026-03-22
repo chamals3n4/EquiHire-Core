@@ -306,7 +306,10 @@ service /api on apiListener {
             return <http:InternalServerError>{body: {"error": eval.message()}};
         }
 
-        boolean pass = eval.overallScore >= payload.threshold;
+        // Determine pass based on explicit decision or threshold
+        boolean pass = payload.decision == "accepted" ? true :
+                       payload.decision == "rejected" ? false :
+                       eval.overallScore >= payload.threshold;
         string newStatus = pass ? "accepted" : "rejected";
 
         error? updateErr = repositories:updateCandidateStatus(candidateId, newStatus);
@@ -320,13 +323,33 @@ service /api on apiListener {
             error? emailErr = services:sendAcceptanceEmail(
                     contact.candidateEmail, contact.candidateName, contact.jobTitle);
             emailSent = emailErr is ();
+            log:printInfo("Acceptance decision made", candidateId = candidateId, candidateName = contact.candidateName);
+        } else {
+            // Send rejection email with AI-generated feedback including scores
+            string rejectionMsg = "Thank you for your application and participation in our interview process. "
+                    + "While your profile shows promise, we have decided to move forward with other candidates at this time.\n\n"
+                    + "Your Evaluation Results:\n"
+                    + "• CV/Resume Score: " + eval.cvScore.toString() + "/100\n"
+                    + "• Skills Assessment: " + eval.skillsScore.toString() + "/100\n"
+                    + "• Technical Interview: " + eval.interviewScore.toString() + "/100\n"
+                    + "• Overall Score: " + eval.overallScore.toString() + "/100\n\n"
+                    + "We appreciate your time and effort, and we encourage you to apply for future opportunities. "
+                    + "Best of luck with your career journey!";
+            error? emailErr = services:sendRejectionEmail(
+                    contact.candidateEmail, contact.candidateName, contact.jobTitle, rejectionMsg);
+            emailSent = emailErr is ();
+            log:printInfo("Rejection decision made", candidateId = candidateId, candidateName = contact.candidateName);
         }
 
         return {
             candidateId: candidateId,
             pass: pass,
             emailSent: emailSent,
-            status: newStatus
+            status: newStatus,
+            overallScore: eval.overallScore,
+            cvScore: eval.cvScore,
+            skillsScore: eval.skillsScore,
+            interviewScore: eval.interviewScore
         };
     }
 

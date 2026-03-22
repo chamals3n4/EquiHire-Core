@@ -46,11 +46,25 @@ export default function CandidateManager() {
     setInterviewWeight,
     setSelectedCandidate,
     handleViewDetails,
-    handleApplyDecision,
+    handleAcceptCandidate,
+    handleRejectCandidate,
     handleEvaluateCV,
   } = useCandidates({ userId });
 
   const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table');
+
+  // Wrapper function to handle accept/reject decisions
+  const handleApplyDecision = async (candidateId: string, decision: 'accepted' | 'rejected') => {
+    try {
+      if (decision === 'accepted') {
+        await handleAcceptCandidate(candidateId);
+      } else {
+        await handleRejectCandidate(candidateId);
+      }
+    } catch (error) {
+      console.error(`Failed to ${decision} candidate:`, error);
+    }
+  };
 
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-6 animate-in fade-in duration-500">

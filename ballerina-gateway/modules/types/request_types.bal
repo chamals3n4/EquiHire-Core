@@ -104,6 +104,7 @@ public type CheatEventItem record {|
 // Pass/fail decision by recruiter.
 public type DecisionRequest record {|
     decimal threshold;
+    string decision = "auto"; // 'auto' (based on threshold), 'accepted', or 'rejected'
 |};
 
 // Standalone answer evaluation request (direct Gemini evaluation endpoint).

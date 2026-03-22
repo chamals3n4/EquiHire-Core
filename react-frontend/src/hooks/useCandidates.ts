@@ -42,6 +42,10 @@ export interface UseCandidatesResult {
   setSelectedCandidate: (c: ExtendedCandidate | null) => void;
   /** Mark a candidate as seen and optionally open detail panel */
   handleViewDetails: (candidate: ExtendedCandidate) => void;
+  /** Accept candidate and send acceptance email */
+  handleAcceptCandidate: (candidateId: string) => Promise<void>;
+  /** Reject candidate and send rejection email with scores */
+  handleRejectCandidate: (candidateId: string) => Promise<void>;
   /** Apply accept/reject decision and refresh list */
   handleApplyDecision: (candidateId: string) => Promise<void>;
   /** Trigger manual AI evaluation of candidate CV against Marking Criteria */
@@ -152,7 +156,7 @@ export function useCandidates({ userId }: UseCandidatesOptions): UseCandidatesRe
       try {
         await API.decideCandidate(candidateId, threshold);
         await fetchCandidates(orgId);
-        
+
         // Refresh the selected candidate to show revealed PII
         const updatedCandidates = await API.getCandidates(orgId) as unknown as ExtendedCandidate[];
         const updated = updatedCandidates.find(c => c.candidateId === candidateId);
@@ -161,6 +165,50 @@ export function useCandidates({ userId }: UseCandidatesOptions): UseCandidatesRe
         console.error('Decision failed:', error);
       } finally {
         setIsProcessing(false);
+      }
+    },
+    [threshold, orgId, fetchCandidates]
+  );
+
+  const handleAcceptCandidate = useCallback(
+    async (candidateId: string) => {
+      setIsProcessing(true);
+      try {
+        // Backend handles acceptance email in the decide endpoint
+        await API.decideCandidate(candidateId, threshold, 'accepted');
+
+        // Refresh candidates list and selected candidate details
+        await fetchCandidates(orgId);
+        const updatedCandidates = await API.getCandidates(orgId) as unknown as ExtendedCandidate[];
+        const updated = updatedCandidates.find(c => c.candidateId === candidateId);
+        if (updated) setSelectedCandidate(updated);
+      } catch (error) {
+        console.error('Accept failed:', error);
+        throw error;
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [threshold, orgId, fetchCandidates]
+  );
+
+  const handleRejectCandidate = useCallback(
+    async (candidateId: string) => {
+      setIsProcessing(true);
+      try {
+        // Backend handles rejection email with scores in the decide endpoint
+        await API.decideCandidate(candidateId, threshold, 'rejected');
+
+        // Refresh candidates list and selected candidate details
+        await fetchCandidates(orgId);
+        const updatedCandidates = await API.getCandidates(orgId) as unknown as ExtendedCandidate[];
+        const updated = updatedCandidates.find(c => c.candidateId === candidateId);
+        if (updated) setSelectedCandidate(updated);
+      } catch (error) {
+        console.error('Reject failed:', error);
+        throw error;
+      } finally {
+       setIsProcessing(false);
       }
     },
     [threshold, orgId, fetchCandidates]
@@ -209,6 +257,8 @@ export function useCandidates({ userId }: UseCandidatesOptions): UseCandidatesRe
     setInterviewWeight,
     setSelectedCandidate,
     handleViewDetails,
+    handleAcceptCandidate,
+    handleRejectCandidate,
     handleApplyDecision,
     handleEvaluateCV,
     refreshCandidates,

@@ -4,11 +4,13 @@
 
 import {
   Lock,
+  Check,
   XCircle,
   Clock,
   FileText,
   Loader2,
 } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { ExtendedCandidate } from '@/types';
@@ -18,7 +20,7 @@ export interface CandidateDetailPanelProps {
   threshold: number;
   isProcessing: boolean;
   onClose: () => void;
-  onApplyDecision: (candidateId: string) => Promise<void>;
+  onApplyDecision: (candidateId: string, decision: 'accepted' | 'rejected') => Promise<void>;
   onEvaluateCV?: (candidateId: string) => Promise<void>;
 }
 
@@ -32,7 +34,9 @@ export function CandidateDetailPanel({
   onApplyDecision,
   onEvaluateCV,
 }: CandidateDetailPanelProps) {
-  const meetsThreshold = candidate.score >= threshold;
+  const [showTranscript, setShowTranscript] = useState(false);
+  const isDecisionMade = ['accepted', 'rejected'].includes(candidate.status);
+  const canViewTranscript = candidate.status === 'accepted';
 
   return (
     <div className="w-[400px] flex flex-col space-y-4 animate-in slide-in-from-right-10 duration-300">
@@ -316,22 +320,97 @@ export function CandidateDetailPanel({
             )}
 
             {(candidate.status === 'pending' || candidate.status === 'applied') && candidate.score > 0 && (
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => onApplyDecision(candidate.candidateId, 'accepted')}
+                  disabled={isProcessing}
+                  title="Accept this candidate and send acceptance email"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden />
+                  ) : (
+                    <Check className="w-4 h-4 mr-2" aria-hidden />
+                  )}
+                  Accept
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                  onClick={() => onApplyDecision(candidate.candidateId, 'rejected')}
+                  disabled={isProcessing}
+                  title="Reject this candidate and send rejection email with scores"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden />
+                  ) : (
+                    <XCircle className="w-4 h-4 mr-2" aria-hidden />
+                  )}
+                  Reject
+                </Button>
+              </div>
+            )}
+
+            {canViewTranscript && (
               <Button
-                className={`w-full ${meetsThreshold ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
-                onClick={() => onApplyDecision(candidate.candidateId)}
-                disabled={isProcessing}
+                className="w-full"
+                variant="outline"
+                onClick={() => setShowTranscript(!showTranscript)}
               >
-                {isProcessing ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" aria-hidden />
-                ) : (
-                  <Lock className="w-4 h-4 mr-2" aria-hidden />
-                )}
-                {meetsThreshold ? 'Accept & Reveal Name' : 'Reject & Anonymize'} (Threshold {threshold}%)
+                <FileText className="w-4 h-4 mr-2" aria-hidden />
+                {showTranscript ? 'Hide' : 'View'} Full Transcript
               </Button>
             )}
-            <Button type="button" className="w-full" variant="outline">
-              <FileText className="w-4 h-4 mr-2" aria-hidden /> View Full Transcript
-            </Button>
+
+            {isDecisionMade && !canViewTranscript && (
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                <p className="text-xs text-gray-500">
+                  {candidate.status === 'rejected' ? 'Candidate rejected. Decision email sent.' : 'Candidate accepted. Decision email sent.'}
+                </p>
+              </div>
+            )}
+
+            {showTranscript && canViewTranscript && (
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h5 className="font-semibold text-sm text-blue-900 mb-3">Full Profile & Interview Transcript</h5>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs font-semibold text-blue-700 mb-1">Candidate ID</p>
+                    <p className="text-sm text-blue-900 font-mono">{candidate.candidateId}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-blue-700 mb-1">Experience Level</p>
+                    <p className="text-sm text-blue-900 capitalize">{candidate.experienceLevel || 'Not extracted'}</p>
+                  </div>
+                  {candidate.detectedStack && candidate.detectedStack.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-blue-700 mb-1">Technical Skills</p>
+                      <div className="flex flex-wrap gap-1">
+                        {candidate.detectedStack.map((skill, i) => (
+                          <span key={i} className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {candidate.summaryFeedback && (
+                    <div>
+                      <p className="text-xs font-semibold text-blue-700 mb-1">Interview Feedback</p>
+                      <p className="text-xs text-blue-900 leading-relaxed">{candidate.summaryFeedback}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs font-semibold text-blue-700 mb-1 pt-2 border-t border-blue-200">Evaluation Scores</p>
+                    <div className="text-xs text-blue-900 space-y-1">
+                      <div>• CV Score: {candidate.cvScore || 'N/A'}/100</div>
+                      <div>• Skills Score: {candidate.skillsScore || 'N/A'}/100</div>
+                      <div>• Interview Score: {candidate.interviewScore || 'N/A'}/100</div>
+                      <div className="font-semibold pt-1">• Overall Score: {candidate.score || 'N/A'}/100</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
