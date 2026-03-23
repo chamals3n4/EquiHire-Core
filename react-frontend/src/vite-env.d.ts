@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+type RuntimeConfigs = Record<string, string>;
+
 interface Window {
-  configs?: Record<string, string>;
+  config?: RuntimeConfigs;
+  configs?: RuntimeConfigs;
 }

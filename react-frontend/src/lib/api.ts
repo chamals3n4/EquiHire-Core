@@ -20,7 +20,7 @@ import type {
   UploadCvResponse,
   StartSessionResponse,
   SubmitAssessmentPayload,
-} from '@/types';
+} from "@/types";
 
 export type {
   Job,
@@ -28,18 +28,26 @@ export type {
   Invitation,
   EvaluationTemplate,
   Candidate,
-} from '@/types';
+} from "@/types";
 
-const API_BASE_URL = ((window.configs?.VITE_API_URL || import.meta.env.VITE_API_URL) || 'http://localhost:9092') + '/api';
+const runtimeConfigs = window.config || window.configs || {};
+const API_BASE_URL =
+  (runtimeConfigs.VITE_API_URL ||
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:9092") + "/api";
 
 /**
  * Fetches the organization for the given user id. Returns null if not found (404).
  */
-export async function getOrganization(userId: string): Promise<Organization | null> {
-  const response = await fetch(`${API_BASE_URL}/me/organization?userId=${userId}`);
+export async function getOrganization(
+  userId: string,
+): Promise<Organization | null> {
+  const response = await fetch(
+    `${API_BASE_URL}/me/organization?userId=${userId}`,
+  );
   if (!response.ok) {
     if (response.status === 404) return null;
-    throw new Error('Failed to fetch organization');
+    throw new Error("Failed to fetch organization");
   }
   return response.json();
 }
@@ -47,13 +55,15 @@ export async function getOrganization(userId: string): Promise<Organization | nu
 /**
  * Creates a new organization and returns the response (check response.ok for success).
  */
-export async function createOrganization(data: CreateOrganizationPayload): Promise<Response> {
+export async function createOrganization(
+  data: CreateOrganizationPayload,
+): Promise<Response> {
   const response = await fetch(`${API_BASE_URL}/organizations`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error('Failed to create organization');
+  if (!response.ok) throw new Error("Failed to create organization");
   return response;
 }
 
@@ -62,14 +72,14 @@ export async function createOrganization(data: CreateOrganizationPayload): Promi
  */
 export async function updateOrganization(
   orgId: string,
-  data: UpdateOrganizationPayload
+  data: UpdateOrganizationPayload,
 ): Promise<Response> {
   const response = await fetch(`${API_BASE_URL}/organization`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...data, organizationId: orgId }),
   });
-  if (!response.ok) throw new Error('Failed to update organization');
+  if (!response.ok) throw new Error("Failed to update organization");
   return response;
 }
 
@@ -78,42 +88,48 @@ export async function updateOrganization(
  * Backend may accept extra fields (jobTitle, interviewDate, recruiterId).
  */
 export async function createInvitation(
-  data: CreateInvitationPayload & Record<string, unknown>
+  data: CreateInvitationPayload & Record<string, unknown>,
 ): Promise<Invitation & { magicLink?: string }> {
   const response = await fetch(`${API_BASE_URL}/invitations`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error('Failed to send invitation');
+  if (!response.ok) throw new Error("Failed to send invitation");
   return response.json();
 }
 
 /**
  * Creates a new job role and returns the created job.
  */
-export async function createJob(data: CreateJobPayload & Record<string, unknown>): Promise<Job> {
+export async function createJob(
+  data: CreateJobPayload & Record<string, unknown>,
+): Promise<Job> {
   const response = await fetch(`${API_BASE_URL}/jobs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error('Failed to create job');
+  if (!response.ok) throw new Error("Failed to create job");
   return response.json();
 }
 
 /**
  * Creates or updates job questions in bulk.
  */
-export async function createJobQuestions(questions: QuestionPayload[]): Promise<unknown> {
+export async function createJobQuestions(
+  questions: QuestionPayload[],
+): Promise<unknown> {
   const response = await fetch(`${API_BASE_URL}/jobs/questions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ questions }),
   });
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error((errorData as { error?: string }).error || 'Failed to save questions');
+    throw new Error(
+      (errorData as { error?: string }).error || "Failed to save questions",
+    );
   }
   const text = await response.text();
   return text ? JSON.parse(text) : {};
@@ -124,7 +140,7 @@ export async function createJobQuestions(questions: QuestionPayload[]): Promise<
  */
 export async function getJobQuestions(jobId: string): Promise<Question[]> {
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/questions`);
-  if (!response.ok) throw new Error('Failed to fetch questions');
+  if (!response.ok) throw new Error("Failed to fetch questions");
   return response.json();
 }
 
@@ -132,8 +148,10 @@ export async function getJobQuestions(jobId: string): Promise<Question[]> {
  * Deletes a question by id.
  */
 export async function deleteQuestion(questionId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/questions/${questionId}`, { method: 'DELETE' });
-  if (!response.ok) throw new Error('Failed to delete question');
+  const response = await fetch(`${API_BASE_URL}/questions/${questionId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Failed to delete question");
 }
 
 /**
@@ -141,16 +159,20 @@ export async function deleteQuestion(questionId: string): Promise<void> {
  */
 export async function getJobs(userId: string): Promise<Job[]> {
   const response = await fetch(`${API_BASE_URL}/jobs?userId=${userId}`);
-  if (!response.ok) throw new Error('Failed to fetch jobs');
+  if (!response.ok) throw new Error("Failed to fetch jobs");
   return response.json();
 }
 
 /**
  * Fetches evaluation templates for an organization.
  */
-export async function getEvaluationTemplates(orgId: string): Promise<EvaluationTemplate[]> {
-  const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/evaluation-templates`);
-  if (!response.ok) throw new Error('Failed to fetch evaluation templates');
+export async function getEvaluationTemplates(
+  orgId: string,
+): Promise<EvaluationTemplate[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/organizations/${orgId}/evaluation-templates`,
+  );
+  if (!response.ok) throw new Error("Failed to fetch evaluation templates");
   return response.json();
 }
 
@@ -159,14 +181,14 @@ export async function getEvaluationTemplates(orgId: string): Promise<EvaluationT
  */
 export async function createEvaluationTemplate(
   orgId: string,
-  data: CreateEvaluationTemplatePayload & Record<string, unknown>
+  data: CreateEvaluationTemplatePayload & Record<string, unknown>,
 ): Promise<EvaluationTemplate> {
   const response = await fetch(`${API_BASE_URL}/evaluation-templates`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...data, organizationId: orgId }),
   });
-  if (!response.ok) throw new Error('Failed to create evaluation template');
+  if (!response.ok) throw new Error("Failed to create evaluation template");
   return response.json();
 }
 
@@ -176,26 +198,35 @@ export async function createEvaluationTemplate(
 export async function updateEvaluationTemplate(
   orgId: string,
   templateId: string,
-  data: Partial<EvaluationTemplate> & Record<string, unknown>
+  data: Partial<EvaluationTemplate> & Record<string, unknown>,
 ): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/evaluation-templates/${templateId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...data, organizationId: orgId }),
-  });
-  if (!response.ok) throw new Error('Failed to update evaluation template');
+  const response = await fetch(
+    `${API_BASE_URL}/evaluation-templates/${templateId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...data, organizationId: orgId }),
+    },
+  );
+  if (!response.ok) throw new Error("Failed to update evaluation template");
 }
 
 /**
  * Deletes an evaluation template.
  */
-export async function deleteEvaluationTemplate(orgId: string, templateId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/evaluation-templates/${templateId}`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ organizationId: orgId }),
-  });
-  if (!response.ok) throw new Error('Failed to delete evaluation template');
+export async function deleteEvaluationTemplate(
+  orgId: string,
+  templateId: string,
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/evaluation-templates/${templateId}`,
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organizationId: orgId }),
+    },
+  );
+  if (!response.ok) throw new Error("Failed to delete evaluation template");
 }
 
 /**
@@ -203,7 +234,7 @@ export async function deleteEvaluationTemplate(orgId: string, templateId: string
  */
 export async function getInvitations(userId: string): Promise<Invitation[]> {
   const response = await fetch(`${API_BASE_URL}/invitations?userId=${userId}`);
-  if (!response.ok) throw new Error('Failed to fetch invitations');
+  if (!response.ok) throw new Error("Failed to fetch invitations");
   return response.json();
 }
 
@@ -212,12 +243,14 @@ export async function getInvitations(userId: string): Promise<Invitation[]> {
  */
 export async function uploadCv(formData: FormData): Promise<UploadCvResponse> {
   const response = await fetch(`${API_BASE_URL}/candidates/upload-cv`, {
-    method: 'POST',
+    method: "POST",
     body: formData,
   });
   if (!response.ok) {
     const errorData = await response.json();
-    throw new Error((errorData as { error?: string }).error || 'Failed to upload CV');
+    throw new Error(
+      (errorData as { error?: string }).error || "Failed to upload CV",
+    );
   }
   return response.json();
 }
@@ -225,11 +258,14 @@ export async function uploadCv(formData: FormData): Promise<UploadCvResponse> {
 /**
  * Validates an invitation token and returns validation result and candidate context.
  */
-export async function validateInvitation(token: string): Promise<import('@/types').ValidateInvitationResponse> {
+export async function validateInvitation(
+  token: string,
+): Promise<import("@/types").ValidateInvitationResponse> {
   const response = await fetch(`${API_BASE_URL}/invitations/validate/${token}`);
   if (!response.ok) {
-    if (response.status === 404) return { valid: false, message: 'Invitation not found' };
-    throw new Error('Failed to validate invitation');
+    if (response.status === 404)
+      return { valid: false, message: "Invitation not found" };
+    throw new Error("Failed to validate invitation");
   }
   return response.json();
 }
@@ -239,14 +275,17 @@ export async function validateInvitation(token: string): Promise<import('@/types
  */
 export async function startExamSession(
   candidateId: string,
-  payload: { jobId: string; invitationId: string }
+  payload: { jobId: string; invitationId: string },
 ): Promise<StartSessionResponse> {
-  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/start-session`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error('Failed to start exam session');
+  const response = await fetch(
+    `${API_BASE_URL}/candidates/${candidateId}/start-session`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!response.ok) throw new Error("Failed to start exam session");
   return response.json();
 }
 
@@ -255,14 +294,17 @@ export async function startExamSession(
  */
 export async function submitCandidateAnswers(
   candidateId: string,
-  payload: SubmitAssessmentPayload
+  payload: SubmitAssessmentPayload,
 ): Promise<unknown> {
-  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/evaluate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error('Failed to submit answers');
+  const response = await fetch(
+    `${API_BASE_URL}/candidates/${candidateId}/evaluate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!response.ok) throw new Error("Failed to submit answers");
   return response.json();
 }
 
@@ -270,8 +312,10 @@ export async function submitCandidateAnswers(
  * Fetches candidates for an organization (dashboard list).
  */
 export async function getCandidates(orgId: string): Promise<Candidate[]> {
-  const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/candidates`);
-  if (!response.ok) throw new Error('Failed to fetch candidates');
+  const response = await fetch(
+    `${API_BASE_URL}/organizations/${orgId}/candidates`,
+  );
+  if (!response.ok) throw new Error("Failed to fetch candidates");
   return response.json();
 }
 
@@ -284,35 +328,43 @@ export async function getCandidates(orgId: string): Promise<Candidate[]> {
 export async function decideCandidate(
   candidateId: string,
   threshold: number,
-  decision: 'auto' | 'accepted' | 'rejected' = 'auto'
+  decision: "auto" | "accepted" | "rejected" = "auto",
 ): Promise<unknown> {
-  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/decide`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ threshold, decision }),
-  });
-  if (!response.ok) throw new Error('Decision failed');
+  const response = await fetch(
+    `${API_BASE_URL}/candidates/${candidateId}/decide`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ threshold, decision }),
+    },
+  );
+  if (!response.ok) throw new Error("Decision failed");
   return response.json();
 }
 
 /**
  * Updates a job by id.
  */
-export async function updateJob(jobId: string, data: UpdateJobPayload): Promise<void> {
+export async function updateJob(
+  jobId: string,
+  data: UpdateJobPayload,
+): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error('Failed to update job');
+  if (!response.ok) throw new Error("Failed to update job");
 }
 
 /**
  * Deletes a job by id.
  */
 export async function deleteJob(jobId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`, { method: 'DELETE' });
-  if (!response.ok) throw new Error('Failed to delete job');
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Failed to delete job");
 }
 
 /**
@@ -320,31 +372,44 @@ export async function deleteJob(jobId: string): Promise<void> {
  */
 export async function updateQuestion(
   questionId: string,
-  data: { questionText: string; sampleAnswer: string; keywords: string[]; type: string }
+  data: {
+    questionText: string;
+    sampleAnswer: string;
+    keywords: string[];
+    type: string;
+  },
 ): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/questions/${questionId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error('Failed to update question');
+  if (!response.ok) throw new Error("Failed to update question");
 }
 
 /**
  * Fetches audit logs for an organization.
  */
-export async function getAuditLogs(orgId: string): Promise<import('@/types').AuditLog[]> {
-  const response = await fetch(`${API_BASE_URL}/organizations/${orgId}/audit-logs`);
-  if (!response.ok) throw new Error('Failed to fetch audit logs');
+export async function getAuditLogs(
+  orgId: string,
+): Promise<import("@/types").AuditLog[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/organizations/${orgId}/audit-logs`,
+  );
+  if (!response.ok) throw new Error("Failed to fetch audit logs");
   return response.json();
 }
 
 /**
  * Fetches the presigned URL to reveal the candidate's original CV (PII data).
  */
-export async function revealCandidate(candidateId: string): Promise<{ url: string; status: string }> {
-  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}/reveal`);
-  if (!response.ok) throw new Error('Failed to reveal candidate');
+export async function revealCandidate(
+  candidateId: string,
+): Promise<{ url: string; status: string }> {
+  const response = await fetch(
+    `${API_BASE_URL}/candidates/${candidateId}/reveal`,
+  );
+  if (!response.ok) throw new Error("Failed to reveal candidate");
   return response.json();
 }
 
@@ -382,4 +447,3 @@ export const API = {
   getAuditLogs,
   revealCandidate,
 };
-
